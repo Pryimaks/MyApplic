@@ -1,6 +1,10 @@
 package com.first.myapplic.uiph.NotesList
 
 import android.annotation.SuppressLint
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,6 +13,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -28,10 +33,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -39,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -55,32 +64,63 @@ import com.first.myapplic.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import com.first.myapplic.Constants.orPlaceHolderList
 import com.first.myapplic.GenericAppBar
+import com.first.myapplic.ui.theme.noteBGBlue
+import com.first.myapplic.ui.theme.noteBGYellow
+import com.first.myapplic.uiph.NotesViewModel
+import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
-fun NotesList(navController: NavController) {
+fun NotesList(navController: NavController, viewModel: NotesViewModel) {
     val openDialog = remember { mutableStateOf(false) }
     val deleteText = remember { mutableStateOf("") }
-    val notes = TestConstants.notes
+    val notesQuery = remember { mutableStateOf("") }
+    val notesToDelete = remember { mutableStateOf(listOf<Note>()) }
+    val notes = viewModel.notes.observeAsState()
+    val context = LocalContext.current
+
     MyApplicTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primary) {
             Scaffold(
                 topBar = {
                     GenericAppBar(
                         title = stringResource(R.string.photo_notes),
                         onIconClick = {
-                            openDialog.value = true
-                            deleteText.value = "Are you sure you want to delete all notes? "
+                            if (!notes.value.isNullOrEmpty()) {
+                                openDialog.value = true
+                                deleteText.value = "Are you sure you want to delete all notes?"
+                                notesToDelete.value = notes.value ?: emptyList()
+                            } else {
+                                Toast.makeText(context, "No Notes found.", Toast.LENGTH_SHORT)
+                                    .show()
+                            }
                         },
                         icon = {
                             Icon(
                                 imageVector = ImageVector.vectorResource(id = R.drawable.note_delete),
                                 contentDescription = stringResource(id = R.string.delete_note),
-                                tint = MaterialTheme.colorScheme.onPrimary
+                                tint = Color.Black
                             )
                         },
                         iconState = remember { mutableStateOf(true) }
@@ -93,86 +133,211 @@ fun NotesList(navController: NavController) {
                         icon = R.drawable.note_add_icon
                     )
                 }
-            ) { paddingValues ->
-                Column(modifier = Modifier.padding(paddingValues)) {
-                    notes.forEach { note ->
-                        NoteListItem(
-                            note = note,
-                            openDialog = openDialog,
-                            text = deleteText,
-                            navController = navController
-                        )
-                    }
-                    DeleteDialog(openDialog = openDialog, text = deleteText) {}
+            ) { contentPadding ->
+                Column(
+                    modifier = Modifier.padding(contentPadding)
+                ) {
+                    SearchBar(notesQuery)
+                    NotesList(
+                        notes = notes.value.orPlaceHolderList(),
+                        query = notesQuery,
+                        openDialog = openDialog,
+                        deleteText = deleteText,
+                        navController = navController,
+                        notesToDelete = notesToDelete
+                    )
                 }
+                DeleteDialog(
+                    openDialog = openDialog,
+                    text = deleteText,
+                    notesToDelete = notesToDelete,
+                    action = {
+                        notesToDelete.value.forEach {
+                            viewModel.deleteNotes(it)
+                        }
+                    })
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchBar(query: MutableState<String>) {
+    Column(Modifier.padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 0.dp)) {
+        TextField(
+            value = query.value,
+            placeholder = { Text("Search..") },
+            maxLines = 1,
+            onValueChange = { query.value = it },
+            modifier = Modifier
+                .background(Color.White)
+                .clip(RoundedCornerShape(12.dp))
+                .fillMaxWidth(),
+            colors = TextFieldDefaults.textFieldColors(
+                containerColor = Color.Black,
+            ),
+            trailingIcon = {
+                AnimatedVisibility(
+                    visible = query.value.isNotEmpty(),
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    IconButton(onClick = { query.value = "" }) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(id = R.drawable.icon_cross),
+                            contentDescription = stringResource(
+                                R.string.clear_search
+                            )
+                        )
+                    }
+                }
+            })
+    }
+}
+
+@Composable
+fun NotesList(
+    notes: List<Note>,
+    openDialog: MutableState<Boolean>,
+    query: MutableState<String>,
+    deleteText: MutableState<String>,
+    navController: NavController,
+    notesToDelete: MutableState<List<Note>>
+) {
+    val previousHeader = remember { mutableStateOf("") }
+    LazyColumn(
+        contentPadding = PaddingValues(12.dp),
+        modifier = Modifier.background(MaterialTheme.colorScheme.primary)
+    ) {
+        val queriedNotes = if (query.value.isEmpty()){
+            notes
+        } else {
+            notes.filter { it.note.contains(query.value) || it.title.contains(query.value) }
+        }
+        itemsIndexed(queriedNotes) { index, note ->
+            if (note.getDay() != previousHeader.value) {
+                Column(
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(text = note.getDay(), color = Color.Black)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                previousHeader.value = note.getDay()
+            }
+            NoteListItem(
+                note,
+                openDialog,
+                deleteText = deleteText ,
+                navController,
+                notesToDelete = notesToDelete,
+                noteBackGround = if (index % 2 == 0) {
+                    noteBGYellow
+                } else noteBGBlue
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteListItem(
     note: Note,
     openDialog: MutableState<Boolean>,
-    text: MutableState<String>,
-    navController: NavController
+    deleteText: MutableState<String>,
+    navController: NavController,
+    noteBackGround: Color,
+    notesToDelete: MutableState<List<Note>>
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .shadow(4.dp, shape = RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) // Тема для темного/світлого режиму
-    ) {
+    Box(modifier = Modifier.height(120.dp).clip(RoundedCornerShape(12.dp))) {
         Column(
             modifier = Modifier
+                .background(noteBackGround)
                 .fillMaxWidth()
-                .clickable { navController.navigate(Constants.noteDetailNavigation(note.id)) }
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .height(120.dp)
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = rememberRipple(bounded = false),
+                    onClick = {
+                        note.id?.let {
+                            navController.navigate(Constants.noteDetailNavigation(it))
+                        }
+                    },
+                    onLongClick = {
+                        if (note.id != 0) {
+                            openDialog.value = true
+                            deleteText.value = "Are you sure you want to delete this note ?"
+                            notesToDelete.value = listOf(note)
+                        }
+                    }
+                )
         ) {
-            Text(
-                text = note.title,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary // Тема
-            )
-            Text(
-                text = note.note,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface // Текст буде видно в темному режимі
-            )
-            Text(
-                text = note.dateUpdated,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+
+            Row() {
+                if (note.imageUri != null && note.imageUri.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(
+                            ImageRequest
+                                .Builder(LocalContext.current)
+                                .data(data = Uri.parse(note.imageUri))
+                                .build()
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth(0.3f),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+                Column() {
+                    Text(
+                        text = note.title,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    Text(
+                        text = note.note,
+                        color = Color.Black,
+                        maxLines = 3,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                    Text(
+                        text = note.dateUpdated,
+                        color = Color.Black,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+            }
     }
 }
 
 @Composable
 fun NotesFab(contentDescription: String, icon: Int, action: () -> Unit) {
     FloatingActionButton(
-        onClick = { action.invoke() },
-        containerColor = MaterialTheme.colorScheme.primaryContainer // Адаптація для темної теми
+        onClick = { action() },
+        containerColor = MaterialTheme.colorScheme.primaryContainer
     ) {
         Icon(
-            painter = painterResource(id = icon),
+            ImageVector.vectorResource(id = icon),
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onPrimaryContainer // Контрастний колір іконки
+            tint = Color.Black
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeleteDialog(
     openDialog: MutableState<Boolean>,
     text: MutableState<String>,
-    action: () -> Unit
+    action: () -> Unit,
+    notesToDelete: MutableState<List<Note>>
 ) {
     if (openDialog.value) {
         AlertDialog(
@@ -182,25 +347,28 @@ fun DeleteDialog(
             confirmButton = {
                 Button(
                     onClick = {
-                        action.invoke()
+                        action()
                         openDialog.value = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        notesToDelete.value = emptyList()
+                    }
                 ) {
-                    Text("Yes", color = MaterialTheme.colorScheme.onError)
+                    Text("Yes")
                 }
             },
             dismissButton = {
                 Button(
-                    onClick = { openDialog.value = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    onClick = {
+                        openDialog.value = false
+                        notesToDelete.value = emptyList()
+                    }
                 ) {
-                    Text("No", color = MaterialTheme.colorScheme.onSecondary)
+                    Text("No")
                 }
             }
         )
     }
 }
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -211,7 +379,7 @@ fun SettingsScreen() {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
-                    IconButton(onClick = { /* Додайте навігацію назад */ }) {
+                    IconButton(onClick = {  }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -223,3 +391,4 @@ fun SettingsScreen() {
         }
     }
 }
+

@@ -3,43 +3,8 @@ package com.first.myapplic
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import com.first.myapplic.ui.theme.MyApplicTheme
-import android.util.Log
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.font.FontWeight
 
-import androidx.compose.ui.unit.dp
-import com.first.myapplic.model.Note
-import com.first.myapplic.test.TestConstants
-
-
-import androidx.compose.foundation.lazy.items
-
-import androidx.compose.material3.*
 
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -50,13 +15,20 @@ import com.first.myapplic.uiph.EditNote.NoteEditScreen
 import com.first.myapplic.uiph.NoteDetail.NoteDetailScreen
 import com.first.myapplic.uiph.NotesList.NotesList
 
-import com.first.myapplic.ui.theme.MyApplicTheme
-import com.first.myapplic.uiph.NoteDetail.NoteDetailScreen
-import com.first.myapplic.uiph.NotesList.NotesList
+import com.first.myapplic.uiph.CreateNote.CreateNoteScreen
+import com.first.myapplic.uiph.NotesViewModel
+import com.first.myapplic.uiph.NotesViewModelFactory
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var notesViewModel: NotesViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        notesViewModel =
+            NotesViewModelFactory(PhotoNotesApp.getDao())
+                .create(NotesViewModel::class.java)
 
         setContent {
             val navController = rememberNavController()
@@ -66,11 +38,9 @@ class MainActivity : ComponentActivity() {
                     navController = navController,
                     startDestination = Constants.NAVIGATION_NOTES_LIST
                 ) {
-
                     composable(Constants.NAVIGATION_NOTES_LIST) {
-                        NotesList(navController)
+                        NotesList(navController, notesViewModel)
                     }
-
 
                     composable(
                         route = Constants.NAVIGATION_NOTE_DETAIL,
@@ -82,11 +52,12 @@ class MainActivity : ComponentActivity() {
                     ) { backStackEntry ->
                         val noteId = backStackEntry.arguments?.getInt(Constants.NAVIGATION_NOTE_DETAIL_Argument) ?: 0
                         NoteDetailScreen(
-                            noteId = noteId, onBackClick = { navController.popBackStack() },
-                            navController = navController
+                            noteId = noteId,
+                            navController = navController,
+                            viewModel = notesViewModel,
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
-
 
                     composable(
                         route = Constants.NAVIGATION_NOTE_EDIT,
@@ -99,14 +70,20 @@ class MainActivity : ComponentActivity() {
                         val noteId = backStackEntry.arguments?.getInt(Constants.NAVIGATION_NOTE_EDIT_Argument) ?: 0
                         NoteEditScreen(
                             noteId = noteId,
-                            navController = navController
+                            navController = navController,
+                            viewModel = notesViewModel
                         )
+                    }
+
+                    composable(Constants.NAVIGATION_NOTES_CREATE) {
+                        CreateNoteScreen(navController, notesViewModel)
                     }
                 }
             }
         }
     }
 }
+
 
 /*
 @OptIn(ExperimentalMaterial3Api::class)

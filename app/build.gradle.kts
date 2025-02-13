@@ -56,7 +56,8 @@ dependencies {
 
     // Room (ensure the version is correct, and use kapt for Kotlin)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.room.runtime) // Room runtime library
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.runtime.livedata) // Room runtime library
     kapt(libs.androidx.room.compiler) // Room annotation processor for Kotlin
 
     // Firebase Crashlytics
@@ -86,4 +87,6 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.camera.extensions)
+
+    implementation (libs.coil.compose)
 }

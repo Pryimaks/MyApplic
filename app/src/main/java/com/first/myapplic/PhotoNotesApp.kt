@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.room.Room
 import com.first.myapplic.persistence.NotesDao
 import com.first.myapplic.persistence.NotesDatabase
+import android.content.Intent
+import android.net.Uri
 
 
 class PhotoNotesApp : Application() {
@@ -40,6 +42,13 @@ class PhotoNotesApp : Application() {
             fun getDao(): NotesDao {
                 return instance!!.getDb().NotesDao()
             }
+
+        fun getUriPermission(uri: Uri){
+            instance!!.applicationContext.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
 
         }
     }

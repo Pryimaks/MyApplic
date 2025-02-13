@@ -3,7 +3,7 @@ package com.first.myapplic.test
 import com.first.myapplic.model.Note
 
 object TestConstants {
-    fun testNotes(): List<Note>{
+    private fun testNotes(): List<Note>{
         val notes = mutableListOf<Note>()
         val alphabet = listOf(
             'a',
