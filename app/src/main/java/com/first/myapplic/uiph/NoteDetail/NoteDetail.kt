@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 
@@ -47,6 +48,7 @@ fun NoteDetailScreen(
 ) {
     val scope = rememberCoroutineScope()
     val note = remember { mutableStateOf(noteDetailPlaceHolder) }
+    val openImageDialog = remember { mutableStateOf(false) }
 
     LaunchedEffect(true) {
         scope.launch(Dispatchers.IO) {
@@ -93,7 +95,8 @@ fun NoteDetailScreen(
                         modifier = Modifier
                             .fillMaxHeight(0.3f)
                             .fillMaxWidth()
-                            .padding(6.dp),
+                            .padding(6.dp)
+                            .clickable { openImageDialog.value = true },
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -102,7 +105,35 @@ fun NoteDetailScreen(
             }
         }
     }
+
+    if (openImageDialog.value) {
+        Dialog(onDismissRequest = { openImageDialog.value = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        ImageRequest
+                            .Builder(LocalContext.current)
+                            .data(Uri.parse(note.value.imageUri))
+                            .build()
+                    ),
+                    contentDescription = "Full Image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .clickable { openImageDialog.value = false },
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
 }
+
+
 
 
 

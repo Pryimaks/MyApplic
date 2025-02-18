@@ -1,7 +1,10 @@
 package com.first.myapplic.uiph.CreateNote
 
+import android.Manifest
+import android.content.Intent
 import android.graphics.Insets.add
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -19,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -29,6 +33,12 @@ import com.first.myapplic.model.Note
 import com.first.myapplic.ui.theme.MyApplicTheme
 import com.first.myapplic.uiph.NotesList.NotesFab
 import com.first.myapplic.uiph.NotesViewModel
+import java.io.File
+import android.os.Environment
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,24 +46,50 @@ fun CreateNoteScreen(
     navController: NavController,
     viewModel: NotesViewModel
 ) {
-
+    val context = LocalContext.current
     val currentNote = remember { mutableStateOf("") }
     val currentTitle = remember { mutableStateOf("") }
     val currentPhotos = remember { mutableStateOf("") }
     val saveButtonState = remember { mutableStateOf(false) }
+    val showDialog = remember { mutableStateOf(false) }
+    val photoUri = remember { mutableStateOf<Uri?>(null) }
 
-    fun updateSaveButtonState() {
-        saveButtonState.value = currentTitle.value.isNotBlank() && currentNote.value.isNotBlank()
+
+    val takePhotoRequest = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && photoUri.value != null) {
+            currentPhotos.value = photoUri.value.toString()
+        }
     }
+
+    val cameraPermission = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                File(context.cacheDir, "photo.jpg")
+            )
+            photoUri.value = uri
+            takePhotoRequest.launch(uri)
+        } else {
+            Toast.makeText(context, "Доступ до камери відхилено", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
     val getImageRequest = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
-    ) {
-        if (it != null) {
-            PhotoNotesApp.getUriPermission(it)
+    ) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            currentPhotos.value = it.toString()
         }
-        currentPhotos.value = it.toString()
     }
+
+
 
     MyApplicTheme {
         Surface(
@@ -85,9 +121,7 @@ fun CreateNoteScreen(
                 floatingActionButton = {
                     NotesFab(
                         contentDescription = stringResource(R.string.add_image),
-                        action = {
-                            getImageRequest.launch(arrayOf("image/*"))
-                        },
+                        action = { showDialog.value = true },
                         icon = R.drawable.camera
                     )
                 }
@@ -98,12 +132,10 @@ fun CreateNoteScreen(
                         .padding(paddingValues)
                         .padding(12.dp)
                 ) {
-
                     if (currentPhotos.value.isNotEmpty()) {
                         Image(
                             painter = rememberAsyncImagePainter(
-                                ImageRequest
-                                    .Builder(LocalContext.current)
+                                ImageRequest.Builder(LocalContext.current)
                                     .data(data = Uri.parse(currentPhotos.value))
                                     .build()
                             ),
@@ -125,7 +157,7 @@ fun CreateNoteScreen(
                         onValueChange = { value ->
                             currentTitle.value = value
                             saveButtonState.value =
-                                currentTitle.value != "" && currentNote.value != ""
+                                currentTitle.value.isNotEmpty() && currentNote.value.isNotEmpty()
                         },
                         label = { Text(text = "Title") }
                     )
@@ -142,13 +174,38 @@ fun CreateNoteScreen(
                         onValueChange = { value ->
                             currentNote.value = value
                             saveButtonState.value =
-                                currentTitle.value != "" && currentNote.value != ""
+                                currentTitle.value.isNotEmpty() && currentNote.value.isNotEmpty()
                         },
                         label = { Text(text = "Body") }
                     )
                 }
             }
 
+
+            if (showDialog.value) {
+                AlertDialog(
+                    onDismissRequest = { showDialog.value = false },
+                    title = { Text("Додати фото") },
+                    text = { Text("Оберіть джерело зображення") },
+                    confirmButton = {
+                        Button(onClick = {
+                            showDialog.value = false
+                            getImageRequest.launch(arrayOf("image/*"))
+                        }) {
+                            Text("Галерея")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = {
+                            showDialog.value = false
+                            cameraPermission.launch(Manifest.permission.CAMERA)
+                        }) {
+                            Text("Камера")
+                        }
+                    }
+                )
+
+            }
         }
     }
 }
