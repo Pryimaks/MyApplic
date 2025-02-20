@@ -3,6 +3,10 @@ package com.first.myapplic
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource.Companion.SideEffect
+import androidx.core.view.WindowCompat
 import com.first.myapplic.ui.theme.MyApplicTheme
 
 
@@ -18,6 +22,7 @@ import com.first.myapplic.uiph.NotesList.NotesList
 import com.first.myapplic.uiph.CreateNote.CreateNoteScreen
 import com.first.myapplic.uiph.NotesViewModel
 import com.first.myapplic.uiph.NotesViewModelFactory
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
 
@@ -31,9 +36,11 @@ class MainActivity : ComponentActivity() {
                 .create(NotesViewModel::class.java)
 
         setContent {
+
             val navController = rememberNavController()
 
             MyApplicTheme {
+
                 NavHost(
                     navController = navController,
                     startDestination = Constants.NAVIGATION_NOTES_LIST

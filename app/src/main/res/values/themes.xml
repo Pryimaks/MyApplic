@@ -2,6 +2,6 @@
 <resources>
 
     <style name="Theme.MyApplic" parent="android:Theme.Material.Light.NoActionBar" >
-        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:windowBackground">@android:color/darker_gray</item>
     </style>
 </resources>

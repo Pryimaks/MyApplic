@@ -41,6 +41,9 @@ android {
 }
 
 dependencies {
+
+    implementation(libs.accompanist.systemuicontroller.v0301)
+
     // Core and Lifecycle
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
